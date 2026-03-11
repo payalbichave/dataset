@@ -1,291 +1,99 @@
-from flask import Flask, request, render_template
+import os
 import tensorflow as tf
-import numpy as np
+from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing import image
-from io import BytesIO
-import json
+import numpy as np
+from flask import Flask, render_template, request, jsonify
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
+# Configurations
+app.config['UPLOAD_FOLDER'] = 'static/uploads'
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max limit
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# ✅ Load trained model (USE .keras version)
-model = tf.keras.models.load_model("plant_disease_cnn.keras")
+# Load the trained model
+MODEL_PATH = 'plant_disease_cnn_model.h5'
+try:
+    model = load_model(MODEL_PATH)
+    print(f"Model loaded from {MODEL_PATH}")
+except Exception as e:
+    print(f"Error loading model: {e}")
+    model = None
 
-# ✅ Load class names
-with open("class_indices.json", "r") as f:
-    class_names = json.load(f)
-
-# ✅ Disease Information Dictionary (keep yours here)
-disease_info = {
-
-"Pepper__bell___Bacterial_spot": {
-    "symptoms": [
-        "Small dark water-soaked spots on leaves.",
-        "Spots turn brown with yellow halo.",
-        "Leaves may drop prematurely.",
-        "Raised scabby lesions on fruits."
-    ],
-    "remedy": [
-        "Use certified disease-free seeds.",
-        "Apply copper-based bactericides.",
-        "Avoid overhead irrigation.",
-        "Practice crop rotation."
+# Get class names exactly as they were during training
+TRAIN_DIR = 'train_val_test/train'
+if os.path.exists(TRAIN_DIR):
+    class_names = sorted(os.listdir(TRAIN_DIR))
+else:
+    class_names = [
+        'Pepper__bell___Bacterial_spot', 'Pepper__bell___healthy', 
+        'Potato___Early_blight', 'Potato___Late_blight', 'Potato___healthy', 
+        'Tomato_Bacterial_spot', 'Tomato_Early_blight', 'Tomato_Late_blight', 
+        'Tomato_Leaf_Mold', 'Tomato_Septoria_leaf_spot', 
+        'Tomato_Spider_mites_Two_spotted_spider_mite', 'Tomato__Target_Spot', 
+        'Tomato__Tomato_YellowLeaf__Curl_Virus', 'Tomato__Tomato_mosaic_virus', 
+        'Tomato_healthy'
     ]
-},
 
-"Pepper__bell___healthy": {
-    "symptoms": [
-        "Leaves are green and firm.",
-        "No visible spots or discoloration.",
-        "Normal plant growth.",
-        "Healthy fruit development."
-    ],
-    "remedy": [
-        "Maintain proper irrigation schedule.",
-        "Apply balanced fertilizers.",
-        "Monitor regularly for pests.",
-        "Ensure proper sunlight exposure."
-    ]
-},
-
-"Potato___Early_blight": {
-    "symptoms": [
-        "Small dark brown spots on older leaves.",
-        "Concentric ring pattern on lesions.",
-        "Yellowing around infected areas.",
-        "Premature leaf drop."
-    ],
-    "remedy": [
-        "Apply protective fungicides.",
-        "Maintain proper spacing between plants.",
-        "Avoid excessive moisture.",
-        "Remove infected plant debris."
-    ]
-},
-
-"Potato___Late_blight": {
-    "symptoms": [
-        "Dark water-soaked lesions on leaves.",
-        "White fungal growth under leaves.",
-        "Rapid plant wilting.",
-        "Dark patches on tubers."
-    ],
-    "remedy": [
-        "Spray copper-based fungicides.",
-        "Improve field drainage.",
-        "Remove infected plants immediately.",
-        "Use resistant varieties."
-    ]
-},
-
-"Potato___healthy": {
-    "symptoms": [
-        "Uniform green foliage.",
-        "No visible lesions or spots.",
-        "Strong stem growth.",
-        "Healthy tuber formation."
-    ],
-    "remedy": [
-        "Maintain proper watering.",
-        "Use balanced fertilizers.",
-        "Monitor for early disease signs.",
-        "Ensure good soil drainage."
-    ]
-},
-
-"Tomato_Bacterial_spot": {
-    "symptoms": [
-        "Small dark spots on leaves.",
-        "Spots may have yellow halos.",
-        "Leaf curling and drop.",
-        "Raised lesions on fruits."
-    ],
-    "remedy": [
-        "Use disease-free seeds.",
-        "Apply copper sprays.",
-        "Avoid working in wet conditions.",
-        "Practice crop rotation."
-    ]
-},
-
-"Tomato_Early_blight": {
-    "symptoms": [
-        "Brown circular spots with rings.",
-        "Yellowing around lesions.",
-        "Lower leaves dry and fall.",
-        "Dark spots on stems."
-    ],
-    "remedy": [
-        "Remove infected leaves.",
-        "Apply fungicides like mancozeb.",
-        "Avoid overhead watering.",
-        "Rotate crops yearly."
-    ]
-},
-
-"Tomato_Late_blight": {
-    "symptoms": [
-        "Large dark greasy spots on leaves.",
-        "White fungal growth in humidity.",
-        "Rapid plant collapse.",
-        "Brown lesions on fruits."
-    ],
-    "remedy": [
-        "Remove infected plants.",
-        "Apply systemic fungicides.",
-        "Reduce excess irrigation.",
-        "Improve air circulation."
-    ]
-},
-
-"Tomato_Leaf_Mold": {
-    "symptoms": [
-        "Yellow patches on upper leaves.",
-        "Olive-green mold underneath leaves.",
-        "Leaf curling.",
-        "Reduced fruit production."
-    ],
-    "remedy": [
-        "Reduce greenhouse humidity.",
-        "Increase air flow.",
-        "Remove infected leaves.",
-        "Apply fungicide if severe."
-    ]
-},
-
-"Tomato_Septoria_leaf_spot": {
-    "symptoms": [
-        "Small circular gray spots.",
-        "Dark brown borders around spots.",
-        "Leaves turn yellow.",
-        "Lower leaves drop first."
-    ],
-    "remedy": [
-        "Remove infected leaves.",
-        "Apply appropriate fungicide.",
-        "Avoid wetting foliage.",
-        "Use crop rotation."
-    ]
-},
-
-"Tomato_Spider_mites_Two_spotted_spider_mite": {
-    "symptoms": [
-        "Tiny yellow specks on leaves.",
-        "Fine webbing under leaves.",
-        "Leaves turn bronze or dry.",
-        "Reduced plant vigor."
-    ],
-    "remedy": [
-        "Spray water to remove mites.",
-        "Use insecticidal soap.",
-        "Introduce natural predators.",
-        "Maintain proper humidity."
-    ]
-},
-
-"Tomato__Target_Spot": {
-    "symptoms": [
-        "Circular spots with concentric rings.",
-        "Dark brown lesions.",
-        "Leaf yellowing.",
-        "Fruit spots in severe cases."
-    ],
-    "remedy": [
-        "Apply fungicide sprays.",
-        "Remove infected debris.",
-        "Improve air circulation.",
-        "Avoid overcrowding plants."
-    ]
-},
-
-"Tomato__Tomato_YellowLeaf__Curl_Virus": {
-    "symptoms": [
-        "Yellowing of leaf edges.",
-        "Upward curling of leaves.",
-        "Stunted plant growth.",
-        "Reduced fruit yield."
-    ],
-    "remedy": [
-        "Control whitefly population.",
-        "Remove infected plants.",
-        "Use resistant varieties.",
-        "Apply insecticides if needed."
-    ]
-},
-
-"Tomato__Tomato_mosaic_virus": {
-    "symptoms": [
-        "Mottled light and dark green patches.",
-        "Leaf distortion.",
-        "Stunted growth.",
-        "Reduced fruit quality."
-    ],
-    "remedy": [
-        "Remove infected plants.",
-        "Disinfect tools regularly.",
-        "Avoid tobacco contact.",
-        "Use resistant seeds."
-    ]
-},
-
-"Tomato_healthy": {
-    "symptoms": [
-        "Bright green leaves.",
-        "No visible spots.",
-        "Strong stem growth.",
-        "Healthy fruit formation."
-    ],
-    "remedy": [
-        "Maintain proper irrigation.",
-        "Provide balanced nutrients.",
-        "Regular monitoring.",
-        "Ensure adequate sunlight."
-    ]
-}
-
-}
-
-@app.route("/")
-def home():
-    return render_template("index.html")
-
-
-@app.route("/predict", methods=["POST"])
-def predict():
-    if "image" not in request.files:
-        return render_template("index.html")
-
-    file = request.files["image"]
-
-    if file.filename == "":
-        return render_template("index.html")
-
-    # ✅ Read uploaded image correctly
-    img_bytes = BytesIO(file.read())
-
-    img = image.load_img(img_bytes, target_size=(128, 128))
+def model_predict(img_path, model):
+    # Depending on how the model was trained, resize the image to 64x64
+    img = image.load_img(img_path, target_size=(64, 64))
+    # Convert image to array
     img_array = image.img_to_array(img)
+    # The model has Rescaling(1./255) as its first layer so we don't scale it here
+    # Add batch dimension
     img_array = np.expand_dims(img_array, axis=0)
+    
+    # Predict
+    preds = model.predict(img_array)
+    return preds
 
-    # ❌ DO NOT divide by 255 here
-    # Normalization is already inside the trained model
+def format_class_name(name):
+    # Clean up the dataset folder names to make them readable
+    name = name.replace('___', ' - ').replace('__', ' - ').replace('_', ' ')
+    return name
 
-    prediction = model.predict(img_array)
-    confidence = float(np.max(prediction))
-    predicted_class = class_names[np.argmax(prediction)]
+@app.route('/', methods=['GET'])
+def index():
+    return render_template('index.html')
 
-    print("RAW PREDICTION:", prediction)
-    print("PREDICTED:", predicted_class)
-    print("CONFIDENCE:", confidence)
+@app.route('/predict', methods=['POST'])
+def upload():
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part'})
+    
+    f = request.files['file']
+    if f.filename == '':
+        return jsonify({'error': 'No image selected for uploading'})
+    
+    if f and model is not None:
+        filename = secure_filename(f.filename)
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        f.save(file_path)
 
-    info = disease_info.get(predicted_class)
+        try:
+            # Make prediction
+            preds = model_predict(file_path, model)
+            predicted_class_idx = np.argmax(preds, axis=1)[0]
+            confidence = np.max(preds) * 100
+            
+            original_class = class_names[predicted_class_idx]
+            readable_class = format_class_name(original_class)
+            
+            is_healthy = 'healthy' in original_class.lower()
 
-    return render_template("index.html", result={
-        "disease": predicted_class,
-        "symptoms": info["symptoms"],
-        "remedy": info["remedy"],
-        "confidence": round(confidence * 100, 2)
-    })
+            result = {
+                'class': readable_class,
+                'confidence': float(confidence),
+                'is_healthy': is_healthy,
+                'error': None
+            }
+            return jsonify(result)
+        except Exception as e:
+            return jsonify({'error': str(e)})
+            
+    return jsonify({'error': 'Model not loaded correctly on the server.'})
 
-
-if __name__ == "__main__":
-    app.run(debug=True)
+if __name__ == '__main__':
+    app.run(debug=True, port=5000)

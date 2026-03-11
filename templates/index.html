@@ -1,106 +1,118 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>AgroAgent - Plant Disease Detection</title>
-
-    <style>
-        body {
-            margin: 0;
-            font-family: Arial, sans-serif;
-            background: linear-gradient(135deg, #4CAF50, #2E7D32);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-        }
-
-        .container {
-            background: white;
-            padding: 40px;
-            border-radius: 15px;
-            width: 500px;
-            text-align: center;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-        }
-
-        h2 {
-            color: #2E7D32;
-            margin-bottom: 20px;
-        }
-
-        input[type="file"] {
-            margin: 20px 0;
-        }
-
-        button {
-            padding: 10px 20px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-
-        button:hover {
-            background-color: #388E3C;
-        }
-
-        .result {
-            margin-top: 25px;
-            text-align: left;
-        }
-
-        .result h3 {
-            color: #1B5E20;
-        }
-
-        ul {
-            padding-left: 20px;
-        }
-
-        .confidence {
-            font-weight: bold;
-            color: #1565C0;
-        }
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plant Disease Detection AI</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Plus+Jakarta+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
 </head>
-
 <body>
+    
+    <!-- Animated Background -->
+    <div class="bg-animation">
+        <div id="stars"></div>
+        <div id="stars2"></div>
+        <div id="stars3"></div>
+    </div>
 
-<div class="container">
-    <h2>🌿 AgroAgent - Plant Disease Detection</h2>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <i class="fa-solid fa-leaf logo-icon"></i>
+                <h1>Flora<span>Guard</span></h1>
+            </div>
+            <p class="subtitle">Advanced AI Plant Disease Diagnostics</p>
+        </header>
 
-    <form action="/predict" method="post" enctype="multipart/form-data">
-        <input type="file" name="image" required>
-        <br>
-        <button type="submit">Predict Disease</button>
-    </form>
+        <!-- Main Card -->
+        <main class="glass-card main-panel">
+            <div class="upload-section" id="upload-section">
+                <!-- Drop Zone -->
+                <div class="drop-zone" id="drop-zone">
+                    <div class="drop-zone-content">
+                        <i class="fa-solid fa-cloud-arrow-up upload-icon"></i>
+                        <h3>Drag & Drop</h3>
+                        <p>your plant leaf image here</p>
+                        <span class="or-divider">OR</span>
+                        <input type="file" id="file-input" accept="image/*" hidden>
+                        <button class="btn-primary" id="browse-btn">Browse Files</button>
+                    </div>
+                    <!-- Image Preview Container -->
+                    <div class="preview-container hidden" id="preview-container">
+                        <img id="image-preview" src="" alt="Image Preview">
+                        <button class="btn-icon remove-btn" id="remove-btn" title="Remove Image">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                </div>
 
-    {% if result %}
-        <div class="result">
-            <h3>Predicted Disease: {{ result.disease }}</h3>
+                <div class="action-area">
+                    <button class="btn-analyze hidden" id="analyze-btn">
+                        <span>Analyze Leaf</span>
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    </button>
+                </div>
+            </div>
 
-            {% if result.confidence %}
-                <p class="confidence">Confidence: {{ result.confidence }}%</p>
-            {% endif %}
+            <!-- Loading State -->
+            <div class="loading-state hidden" id="loading-state">
+                <div class="scanner-container">
+                    <div class="scanner-bar"></div>
+                    <i class="fa-solid fa-microscope loading-icon"></i>
+                </div>
+                <h3>AI is analyzing your plant...</h3>
+                <p>Checking for over 15 distinct conditions</p>
+            </div>
 
-            <h4>Symptoms:</h4>
-            <ul>
-                {% for s in result.symptoms %}
-                    <li>{{ s }}</li>
-                {% endfor %}
-            </ul>
+            <!-- Result Section -->
+            <div class="result-section hidden" id="result-section">
+                <div class="result-header">
+                    <h2 class="result-title">Analysis Complete</h2>
+                    <button class="btn-icon reset-btn" id="reset-btn" title="Analyze Another">
+                        <i class="fa-solid fa-rotate-right"></i>
+                    </button>
+                </div>
+                
+                <div class="result-box" id="result-box">
+                    <div class="status-icon" id="status-icon">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </div>
+                    <div class="result-details">
+                        <h3 id="disease-name">Tomato - Healthy</h3>
+                        <div class="confidence-wrapper">
+                            <div class="confidence-header">
+                                <span>AI Confidence</span>
+                                <span id="confidence-value">98.5%</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="progress-fill"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="recommendation-card" id="recommendation-card">
+                    <h4><i class="fa-solid fa-lightbulb"></i> Next Steps</h4>
+                    <p id="recommendation-text">Your plant looks perfectly healthy! Keep up the good work with regular watering and appropriate sunlight.</p>
+                </div>
+            </div>
+        </main>
 
-            <h4>Recommended Actions:</h4>
-            <ul>
-                {% for r in result.remedy %}
-                    <li>{{ r }}</li>
-                {% endfor %}
-            </ul>
-        </div>
-    {% endif %}
-</div>
+        <!-- Footer -->
+        <footer>
+            <p>Powered by TensorFlow CNN • Trained on PlantVillage Dataset</p>
+        </footer>
+    </div>
 
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>
