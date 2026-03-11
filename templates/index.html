@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AgroAgent - Plant Disease Detection</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #4CAF50, #2E7D32);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            width: 500px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        h2 {
+            color: #2E7D32;
+            margin-bottom: 20px;
+        }
+
+        input[type="file"] {
+            margin: 20px 0;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        button:hover {
+            background-color: #388E3C;
+        }
+
+        .result {
+            margin-top: 25px;
+            text-align: left;
+        }
+
+        .result h3 {
+            color: #1B5E20;
+        }
+
+        ul {
+            padding-left: 20px;
+        }
+
+        .confidence {
+            font-weight: bold;
+            color: #1565C0;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+    <h2>🌿 AgroAgent - Plant Disease Detection</h2>
+
+    <form action="/predict" method="post" enctype="multipart/form-data">
+        <input type="file" name="image" required>
+        <br>
+        <button type="submit">Predict Disease</button>
+    </form>
+
+    {% if result %}
+        <div class="result">
+            <h3>Predicted Disease: {{ result.disease }}</h3>
+
+            {% if result.confidence %}
+                <p class="confidence">Confidence: {{ result.confidence }}%</p>
+            {% endif %}
+
+            <h4>Symptoms:</h4>
+            <ul>
+                {% for s in result.symptoms %}
+                    <li>{{ s }}</li>
+                {% endfor %}
+            </ul>
+
+            <h4>Recommended Actions:</h4>
+            <ul>
+                {% for r in result.remedy %}
+                    <li>{{ r }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+</div>
+
+</body>
+</html>
